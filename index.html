@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Weather App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(to bottom, #2c3e50, #34495e);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col text-white">
+    <header class="bg-gray-800 p-4">
+        <h1 class="text-3xl font-bold text-center">Test Weather App</h1>
+    </header>
+
+    <main class="flex-grow flex items-center justify-center p-4">
+        <div class="bg-gray-700 p-8 rounded-lg shadow-md w-full max-w-md">
+            <div class="mb-4">
+                <input type="text" id="cityInput" placeholder="Enter city name" class="w-full p-2 border rounded text-gray-800">
+            </div>
+            <div class="flex justify-between mb-4">
+                <button id="searchBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Search</button>
+                <button id="locationBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Use My Location</button>
+            </div>
+            <div id="weatherInfo" class="hidden">
+                <h2 id="cityName" class="text-2xl font-semibold mb-4 text-center"></h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="bg-gray-600 p-3 rounded">
+                        <p class="font-semibold">Temperature</p>
+                        <p id="temperature"></p>
+                    </div>
+                    <div class="bg-gray-600 p-3 rounded">
+                        <p class="font-semibold">Wind Speed</p>
+                        <p id="windSpeed"></p>
+                    </div>
+                    <div class="bg-gray-600 p-3 rounded">
+                        <p class="font-semibold">Wind Direction</p>
+                        <p id="windDirection"></p>
+                    </div>
+                    <div class="bg-gray-600 p-3 rounded">
+                        <p class="font-semibold">Weather Code</p>
+                        <p id="weatherCode"></p>
+                    </div>
+                </div>
+                <p id="lastUpdated" class="mt-4 text-sm text-gray-300 text-center"></p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-800 p-4 text-center text-gray-400">
+        <p>&copy; 2023 Test Weather App. Data provided by Open-Meteo.</p>
+    </footer>
+
+    <script>
+        const searchBtn = document.getElementById('searchBtn');
+        const locationBtn = document.getElementById('locationBtn');
+        const cityInput = document.getElementById('cityInput');
+        const weatherInfo = document.getElementById('weatherInfo');
+        const cityName = document.getElementById('cityName');
+        const temperature = document.getElementById('temperature');
+        const windSpeed = document.getElementById('windSpeed');
+        const windDirection = document.getElementById('windDirection');
+        const weatherCode = document.getElementById('weatherCode');
+        const lastUpdated = document.getElementById('lastUpdated');
+
+        searchBtn.addEventListener('click', () => {
+            const city = cityInput.value;
+            if (city) {
+                getWeatherByCity(city);
+            }
+        });
+
+        locationBtn.addEventListener('click', () => {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        getWeatherByCoords(position.coords.latitude, position.coords.longitude);
+                    },
+                    (error) => {
+                        console.error("Error getting location:", error);
+                    }
+                );
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        });
+
+        async function getWeatherByCity(city) {
+            try {
+                const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`;
+                const geoResponse = await fetch(geoUrl);
+                const geoData = await geoResponse.json();
+                
+                if (geoData.results && geoData.results.length > 0) {
+                    const { latitude, longitude, name } = geoData.results[0];
+                    getWeatherByCoords(latitude, longitude, name);
+                } else {
+                    alert('City not found. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error fetching weather data. Please try again.');
+            }
+        }
+
+        async function getWeatherByCoords(lat, lon, cityName = null) {
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&temperature_unit=celsius`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                displayWeather(data, cityName || 'Your Location');
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error fetching weather data. Please try again.');
+            }
+        }
+
+        function displayWeather(data, location) {
+            weatherInfo.classList.remove('hidden');
+            cityName.textContent = location;
+            temperature.textContent = `${data.current_weather.temperature}°C`;
+            windSpeed.textContent = `${data.current_weather.windspeed} km/h`;
+            windDirection.textContent = `${data.current_weather.winddirection}°`;
+            weatherCode.textContent = getWeatherDescription(data.current_weather.weathercode);
+            lastUpdated.textContent = `Last updated: ${new Date(data.current_weather.time).toLocaleString()}`;
+        }
+
+        function getWeatherDescription(code) {
+            const weatherCodes = {
+                0: 'Clear sky',
+                1: 'Mainly clear',
+                2: 'Partly cloudy',
+                3: 'Overcast',
+                45: 'Fog',
+                48: 'Depositing rime fog',
+                51: 'Light drizzle',
+                53: 'Moderate drizzle',
+                55: 'Dense drizzle',
+                61: 'Slight rain',
+                63: 'Moderate rain',
+                65: 'Heavy rain',
+                71: 'Slight snow fall',
+                73: 'Moderate snow fall',
+                75: 'Heavy snow fall',
+                95: 'Thunderstorm',
+                96: 'Thunderstorm with slight hail',
+                99: 'Thunderstorm with heavy hail'
+            };
+            return weatherCodes[code] || `Unknown (${code})`;
+        }
+    </script>
+</body>
+</html>
